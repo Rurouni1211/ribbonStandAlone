@@ -52,7 +52,7 @@
 
     // === Load Texture ===
     const loader = new THREE.TextureLoader();
-    const texture = loader.load('/Textures/salmon.png', (tex) => {
+    const texture = loader.load('/Textures/haircolor1.png', (tex) => {
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -78,54 +78,32 @@
         }
       `,
       fragmentShader: `
-       precision highp float;
-       varying vec2 vUv;
-       uniform sampler2D uTexture;
-       uniform float uTime;
-       uniform float uOpacity;
+        precision highp float;
+        varying vec2 vUv;
+        uniform sampler2D uTexture;
+        uniform float uTime;
+        uniform float uOpacity;
 
-       void main() {
-           vec2 uv = vUv;
+        void main() {
+          vec2 uv = vUv;
 
-           // Wandering offset — texture drifts inside shape
-           vec2 drift = vec2(
-               0.015 * sin(uTime * 0.5),
-               0.01 * cos(uTime * 0.4)
-           );
-           uv += drift;
+          // Subtle drift over time (wandering texture)
+          uv += vec2(0.015 * sin(uTime * 0.5), 0.01 * cos(uTime * 0.4));
 
-           // Local distortion waves (flowing inside)
-           float waveX = sin(uv.y * 40.0 + uTime * 2.0) * 0.01;
-           float waveY = cos(uv.x * 35.0 + uTime * 2.5) * 0.01;
-           uv.x += waveX;
-           uv.y += waveY;
+          // Add flowing distortion to UV coordinates
+          uv.x += sin(uv.y * 40.0 + uTime * 2.0) * 0.01;
+          uv.y += cos(uv.x * 35.0 + uTime * 2.5) * 0.01;
 
-           // Sample texture
-           vec4 tex = texture2D(uTexture, uv);
+          // Sample texture with distorted UVs
+          vec4 tex = texture2D(uTexture, uv);
 
-           // Slight desaturation and brightness
-           float luminance = dot(tex.rgb, vec3(0.5, 1.0, 0.114));
-           vec3 softColor = mix(tex.rgb, vec3(luminance), 0.15); // desaturate
-           softColor = mix(softColor, vec3(1.0), 0.05); // brighten slightly
+          // Output raw color with shimmer (no softColor or pinkBoost)
+          float shimmer = 0.015 * sin((uv.x + uv.y) * 15.0 + uTime * 2.0);
+          vec3 color = tex.rgb + shimmer;
 
-           // Add subtle shimmer
-           float shimmer = 0.015 * sin((uv.x + uv.y) * 15.0 + uTime * 2.0);
-           softColor += shimmer;
-
-           // Optional soft blur hint (very subtle glow)
-           softColor = mix(softColor, vec3(luminance), 0.03);
-
-        //    // Stronger pink boost
-        //    vec3 pinkBoost = softColor;
-        //    pinkBoost.r *= 1.35;  // increase red
-        //    pinkBoost.b *= 1.25;  // increase blue
-        //    pinkBoost.g *= 0.85;  // decrease green
-
-           gl_FragColor = vec4(clamp(softColor, 0.0, 1.0), tex.a * uOpacity);
-       }
-
-
-    `,
+          gl_FragColor = vec4(clamp(color, 0.0, 1.0), tex.a * uOpacity);
+        }
+      `,
       uniforms: {
         uTime: { value: 0.0 },
         uTexture: { value: texture },
